@@ -1,0 +1,34 @@
+# Build outputs
+target/
+build/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# Mend Resolver workspace (generated)
+.github/mend-resolver/logs/
+.github/mend-resolver/backups/
+
+# Keep report templates but ignore generated reports
+# (Reports are generated per-run and should not be committed)
+
+# MCP
+mcp/node_modules/
+mcp/.env
+mcp/npm-debug.log*
+mcp/yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
