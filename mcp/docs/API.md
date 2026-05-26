@@ -1,19 +1,18 @@
-# Mend MCP Server API Documentation
+# Mend MCP Server API
 
 ## Overview
 
-The Mend MCP Server provides tools for the mend-resolver agent framework to:
-- Look up Maven artifacts on Maven Central
-- Check for dependency conflicts before upgrades
-- Validate versions against hard constraints
-- Parse Mend vulnerability reports
-- Retrieve CVE details from NVD
+The Mend MCP Server provides 3 essential tools for CVE resolution:
+
+1. `maven-central-lookup` -- Verify artifacts on Maven Central
+2. `mend-parse-report` -- Parse Mend vulnerability reports with topFix
+3. `mend-check-conflicts` -- Check dependency conflicts
 
 ## Tools
 
 ### 1. maven-central-lookup
 
-Look up an artifact on Maven Central.
+Verify an artifact version exists on Maven Central and extract metadata.
 
 **Input:**
 ```json
@@ -29,24 +28,57 @@ Look up an artifact on Maven Central.
 {
   "exists": true,
   "version": "6.0.19",
-  "packaging": "jar",
-  "jdkCompatible": true,
   "javaVersion": 17,
-  "url": "https://repo1.maven.org/maven2/org/springframework/spring-web/6.0.19/"
+  "url": "https://repo1.maven.org/maven2/org/springframework/spring-web/6.0.19"
 }
 ```
 
-**Without version (gets latest):**
+**JDK Check:** Read `javaVersion` from response. If > 17, reject for JDK 17 projects.
+
+---
+
+### 2. mend-parse-report
+
+Parse a Mend vulnerability report and extract CVEs with topFix recommendations.
+
+**Input:**
 ```json
 {
-  "groupId": "org.springframework.boot",
-  "artifactId": "spring-boot-starter-parent"
+  "reportContent": "<Mend report JSON string>",
+  "reportFormat": "json"
 }
 ```
 
-### 2. mend-check-conflicts
+**Output:**
+```json
+{
+  "totalCves": 8,
+  "cvesBySeverity": { "CRITICAL": 1, "HIGH": 3, "MEDIUM": 2, "LOW": 2 },
+  "cves": [
+    {
+      "cveId": "CVE-2024-22262",
+      "severity": "CRITICAL",
+      "groupId": "org.springframework",
+      "artifactId": "spring-web",
+      "currentVersion": "6.0.8",
+      "fixedVersion": "6.0.19",
+      "topFix": {
+        "fixResolution": "6.0.19",
+        "origin": "MEND",
+        "url": "https://..."
+      }
+    }
+  ]
+}
+```
 
-Check for dependency conflicts when upgrading.
+**Key Field:** `topFix.fixResolution` -- Mend's recommended fix version. Use this as the primary target.
+
+---
+
+### 3. mend-check-conflicts
+
+Check for dependency conflicts before upgrading a version.
 
 **Input:**
 ```json
@@ -55,20 +87,8 @@ Check for dependency conflicts when upgrading.
   "proposedVersion": "6.0.19",
   "currentVersion": "6.0.8",
   "projectDeps": {
-    "direct": [
-      {
-        "coordinates": "org.springframework:spring-web",
-        "version": "6.0.8",
-        "file": "pom.xml"
-      }
-    ],
-    "transitive": [
-      {
-        "coordinates": "org.springframework:spring-core",
-        "requiredVersion": "6.0.8",
-        "requiredBy": "org.springframework:spring-web:6.0.8"
-      }
-    ]
+    "direct": [...],
+    "transitive": [...]
   }
 }
 ```
@@ -82,127 +102,18 @@ Check for dependency conflicts when upgrading.
 }
 ```
 
-### 3. mend-validate-version
+## Constraint Enforcement
 
-Validate a version against hard constraints.
+Hard constraints (no downgrades, JDK 17, Spring alignment) are enforced **natively by the agents**, not by MCP tools. This design:
 
-**Input:**
-```json
-{
-  "currentVersion": "6.0.8",
-  "proposedVersion": "6.0.19",
-  "groupId": "org.springframework"
-}
-```
+- Reduces MCP tool complexity
+- Eliminates unnecessary API calls
+- Keeps constraint logic visible in agent definitions
+- Makes the system easier to audit and modify
 
-**Output:**
-```json
-{
-  "valid": true,
-  "errors": []
-}
-```
+## Removed Tools (v1.0 -> v1.1)
 
-**Invalid (downgrade):**
-```json
-{
-  "currentVersion": "6.0.19",
-  "proposedVersion": "6.0.8",
-  "groupId": "org.springframework"
-}
-```
-
-**Output:**
-```json
-{
-  "valid": false,
-  "errors": ["Downgrade detected: 6.0.19 → 6.0.8"]
-}
-```
-
-### 4. mend-parse-report
-
-Parse a Mend vulnerability report.
-
-**Input (JSON):**
-```json
-{
-  "reportContent": "{\"vulnerabilities\": [{\"name\": \"CVE-2024-22262\", \"severity\": \"CRITICAL\"}]}",
-  "reportFormat": "json"
-}
-```
-
-**Output:**
-```json
-{
-  "totalCves": 1,
-  "cvesBySeverity": {
-    "CRITICAL": 1
-  },
-  "cves": [
-    {
-      "cveId": "CVE-2024-22262",
-      "severity": "CRITICAL"
-    }
-  ]
-}
-```
-
-### 5. mend-get-cve-details
-
-Get CVE details from NVD.
-
-**Input:**
-```json
-{
-  "cveId": "CVE-2024-22262"
-}
-```
-
-**Output:**
-```json
-{
-  "found": true,
-  "cveId": "CVE-2024-22262",
-  "description": "Spring Framework URL Parsing Vulnerability...",
-  "severity": "HIGH",
-  "cvssScore": 7.5,
-  "published": "2024-03-01T00:00:00.000",
-  "references": ["https://..."]
-}
-```
-
-## Hard Constraints
-
-The server enforces these constraints:
-
-| Constraint | Enforcement |
-|------------|-------------|
-| JDK 17 | `jdkCompatible: false` for Java > 17 dependencies |
-| No Downgrades | `mend-validate-version` rejects downgrades |
-| Spring Boot 4.x | Conflict check flags non-4.x Spring Boot versions |
-| Spring Framework 7.x | Conflict check flags non-7.x Spring Framework versions |
-
-## Caching
-
-Maven Central lookups are cached in memory with configurable TTL (default: 1 hour).
-
-## Installation
-
-```bash
-cd mcp/
-npm install
-npm start
-```
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MAVEN_CENTRAL_CACHE_TTL` | `3600` | Cache TTL in seconds |
-| `LOG_LEVEL` | `info` | Server log level |
-| `MEND_API_KEY` | - | Optional Mend API key |
-
-## License
-
-MIT
+| Tool | Reason for Removal |
+|------|-------------------|
+| `mend-validate-version` | Constraint checks (no-downgrade, JDK 17) are done natively by agents |
+| `mend-get-cve-details` | Mend report already contains CVE descriptions and severity |
