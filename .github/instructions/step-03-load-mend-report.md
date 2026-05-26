@@ -2,71 +2,73 @@
 
 ## Objective
 
-Accept the Mend vulnerability report provided by the user, parse CVEs, affected libraries, and severity, then map each CVE to the responsible dependencies.
+Accept the Mend vulnerability report provided by the user, parse CVEs, affected libraries, and severity, then map each CVE to responsible dependencies. Use Mend's **topFix** as the primary target version for migration. Count how many places (files/modules) each CVE affects.
 
 ## Prerequisites
 
 - Step 1 (Repository Analysis) is complete
-- Step 2 (Dependency Collection) is complete — dependency map available
+- Step 2 (Dependency Collection) is complete -- dependency map available
 
 ## Important Rules
 
 - **DO NOT attempt to discover vulnerabilities manually**
 - **Only work from the user-provided Mend report**
-- **The Mend report is the single source of truth for CVEs**
+- **Use Mend's topFix as the primary target version**
+- **Count affected files per CVE** to know "how many places need changes"
 
 ## Steps
 
 ### 3.1 Accept Mend Report
 
-The Mend report can be provided in several ways:
-- File path to a Mend report file (JSON, XML, or PDF)
+The Mend report can be provided as:
+- File path to a Mend report file (JSON, XML, or CSV)
 - Direct content pasted by the user
 - File uploaded to the workspace
 
-**Supported Mend Report Formats:**
-- Mend (formerly WhiteSource) JSON report
+**Supported Formats:**
+- Mend JSON report (with topFix field)
 - Mend XML report
 - Mend Unified Agent scan results
 - CSV/Excel export from Mend portal
 
-### 3.2 Parse the Mend Report
+### 3.2 Parse the Mend Report (via MCP)
 
-Extract the following fields for each CVE entry:
+Call `mend-parse-report` MCP tool to parse the report:
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| `cveId` | CVE identifier | CVE-2024-22262 |
-| `severity` | Severity level | CRITICAL, HIGH, MEDIUM, LOW |
-| `libraryName` | Affected library name | spring-web |
-| `groupId` | Maven group ID | org.springframework |
-| `artifactId` | Maven artifact ID | spring-web |
-| `currentVersion` | Current version in project | 6.0.8 |
-| `fixedVersion` | Version that fixes the CVE | 6.0.19 |
-| `description` | CVE description | "..." |
-| `cvssScore` | CVSS score (if available) | 7.5 |
+```
+mend-parse-report {
+    "reportContent": "<report JSON/XML content>",
+    "reportFormat": "json"
+}
+```
 
-### 3.3 Map CVEs to Dependencies
+Extract these fields for each CVE:
+
+| Field | Description | Source |
+|-------|-------------|--------|
+| `cveId` | CVE identifier | Mend report |
+| `severity` | CRITICAL, HIGH, MEDIUM, LOW | Mend report |
+| `libraryName` | Affected library | Mend report |
+| `groupId` | Maven group ID | Mend report |
+| `artifactId` | Maven artifact ID | Mend report |
+| `currentVersion` | Current version in project | Mend report |
+| **topFix** | **Mend's recommended fix version** | **Mend report `topFix.fixResolution`** |
+| `description` | CVE description | Mend report |
+| `cvssScore` | CVSS score | Mend report |
+
+### 3.3 Map CVEs to Dependencies & Count Affected Files
 
 For each CVE in the Mend report:
 
 1. Look up the affected library in the dependency map
-2. Find ALL `pom.xml` files where this dependency is declared
-3. Note the version source for each declaration
+2. **Count HOW MANY `pom.xml` files declare this dependency**
+3. Find ALL declaring files with their version source
 4. Cross-reference with explicit version overrides
 
-**Mapping output format:**
+**Example mapping output:**
 
 ```json
 {
-  "mendReportLoaded": "2026-01-15T10:35:00Z",
-  "totalCves": 8,
-  "cvesBySeverity": {
-    "CRITICAL": 1,
-    "HIGH": 3,
-    "MEDIUM": 2,
-    "LOW": 2
-  },
   "cveMappings": [
     {
       "cveId": "CVE-2024-22262",
@@ -76,31 +78,86 @@ For each CVE in the Mend report:
         "coordinates": "org.springframework:spring-web",
         "currentVersion": "6.0.8"
       },
-      "mendFixedVersion": "6.0.19",
+      "topFix": {
+        "fixResolution": "6.0.19",
+        "origin": "MEND",
+        "url": "https://..."
+      },
       "declaredIn": [
         {
-          "file": "service-a/pom.xml",
+          "file": "root/pom.xml",
           "versionSource": "parent-bom",
           "hasExplicitVersionOverride": false
         }
       ],
+      "affectedFilesCount": 1,
       "description": "Spring Framework URL Parsing Vulnerability"
+    },
+    {
+      "cveId": "CVE-2024-XXXXX",
+      "severity": "HIGH",
+      "library": {
+        "name": "jackson-databind",
+        "coordinates": "com.fasterxml.jackson.core:jackson-databind",
+        "currentVersion": "2.14.0"
+      },
+      "topFix": {
+        "fixResolution": "2.15.3",
+        "origin": "MEND",
+        "url": "https://..."
+      },
+      "declaredIn": [
+        {
+          "file": "root/pom.xml",
+          "versionSource": "dependencyManagement",
+          "hasExplicitVersionOverride": true,
+          "versionProperty": "jackson.version"
+        },
+        {
+          "file": "service-a/pom.xml",
+          "versionSource": "direct-version",
+          "hasExplicitVersionOverride": true
+        },
+        {
+          "file": "service-b/pom.xml",
+          "versionSource": "direct-version",
+          "hasExplicitVersionOverride": true
+        }
+      ],
+      "affectedFilesCount": 3,
+      "description": "Jackson Deserialization Vulnerability"
     }
   ]
 }
 ```
 
-### 3.4 Validate Mappings
+### 3.4 Summarize "How Many Places Need Changes"
 
-For each mapping:
-- ✅ Confirm the dependency exists in the project
-- ✅ Confirm the current version matches what's in the pom.xml
-- ✅ Confirm the declaring files are correct
-- ⚠️ If a CVE maps to a dependency NOT found in the project, flag for review
+Present to user:
+
+```
+Mend Report Loaded Successfully
+
+CVE Summary:
+   CRITICAL: 1 | HIGH: 3 | MEDIUM: 2 | LOW: 2
+   Total: 8 CVEs
+
+Top Fix Versions Identified:
+   CVE-2024-22262 (CRITICAL) -> spring-web 6.0.19 (topFix)
+   CVE-2024-XXXXX (HIGH) -> jackson-databind 2.15.3 (topFix)
+   ...
+
+Places Requiring Changes per CVE:
+   - jackson-databind: 3 files (root/pom.xml property, service-a/pom.xml, service-b/pom.xml)
+   - spring-web: 1 file (Boot BOM managed)
+   - ...
+
+Strategy: Update root property for jackson (fixes 3 modules at once)
+```
 
 ### 3.5 Write Parsed Report
 
-Save parsed results to `.github/mend-resolver/mend-report-parsed.json`:
+Save to `.github/mend-resolver/mend-report-parsed.json`:
 
 ```json
 {
@@ -110,53 +167,23 @@ Save parsed results to `.github/mend-resolver/mend-report-parsed.json`:
   "cveMappings": [ ... ],
   "statistics": {
     "bySeverity": { "CRITICAL": 1, "HIGH": 3, "MEDIUM": 2, "LOW": 2 },
-    "byVersionSource": {
-      "parent-bom": 3,
-      "explicit-version": 2,
-      "property": 2,
-      "dependencyManagement": 1
-    }
-  },
-  "unmappedCves": []
+    "byVersionSource": { "parent-bom": 3, "explicit-version": 2, "property": 2, "dependencyManagement": 1 },
+    "totalAffectedFiles": 15,
+    "topFixUsage": { "used": 7, "downgradeAvoided": 1 }
+  }
 }
-```
-
-### 3.6 Present to User
-
-Show the parsed CVE summary:
-
-```
-Mend Report Loaded Successfully
-
-📊 CVE Summary:
-   CRITICAL: 1 | HIGH: 3 | MEDIUM: 2 | LOW: 2
-   Total: 8 CVEs
-
-📁 Top Affected Dependencies:
-   - org.springframework:spring-web (1 CVE)
-   - com.fasterxml.jackson.core:jackson-databind (2 CVEs)
-   - ...
-
-⚠️ Dependencies with explicit version overrides (high-risk):
-   - jackson-databind: 2.14.0 (overrides Boot BOM 2.15.3)
-
-→ Ready to proceed to CVE Resolution
 ```
 
 ## Error Handling
 
 | Issue | Action |
 |-------|--------|
-| Mend report file not found | Ask user to check the path and re-provide |
-| Invalid Mend report format | Ask user to export in a supported format |
-| CVE maps to dependency not in project | Flag as unmapped, continue with others |
-| Mend report contains 0 CVEs | Inform user, ask if they want to proceed with Spring upgrade only |
-
-## Output
-
-- Parsed report: `.github/mend-resolver/mend-report-parsed.json`
-- Summary presented to user
+| Mend report file not found | Ask user to check path |
+| Invalid format | Ask user to export in supported format |
+| CVE maps to dependency not in project | Flag as unmapped, continue |
+| No CVEs found | Ask if they want Spring upgrade only |
+| topFix missing | Will use Maven Central lookup as fallback |
 
 ## Next Step
 
-→ [Step 4: Resolve CVEs](step-04-resolve-cves.md)
+-> [Step 4: Resolve CVEs](step-04-resolve-cves.md)

@@ -60,7 +60,7 @@ mvn clean install
 
 If the build fails:
 
-1. **Capture the error output** — read the full error log
+1. **Capture the error output** -- read the full error log
 2. **Categorize the error**:
    - Compilation error (source code incompatibility)
    - Dependency resolution error (missing/conflicting dependencies)
@@ -80,28 +80,28 @@ If the build fails:
 ### Resolution Rules
 
 When fixing build errors, you MUST:
-- ✅ Keep changes minimal — only fix what's needed to compile
-- ✅ Maintain JDK 17 compatibility
-- ✅ Not downgrade any dependency version
-- ✅ Verify fixes on Maven Central if adding/changing dependencies
-- ✅ Check for conflicts before adding new dependencies
+- Keep changes minimal -- only fix what's needed to compile
+- Maintain JDK 17 compatibility
+- Not downgrade any dependency version
+- Verify fixes on Maven Central if adding/changing dependencies
+- Check for conflicts before adding new dependencies
 
 You MUST NOT:
-- ❌ Revert any CVE fix to make the build pass
-- ❌ Downgrade Spring Boot or Spring Framework
-- ❌ Introduce dependencies incompatible with JDK 17
-- ❌ Make unnecessary refactoring changes
+- Revert any CVE fix to make the build pass
+- Downgrade Spring Boot or Spring Framework
+- Introduce dependencies incompatible with JDK 17
+- Make unnecessary refactoring changes
 
 ### Common Build Issues and Solutions
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | `cannot find symbol` | Removed/changed API in upgraded dependency | Update code to use new API |
-| `package does not exist` | Package relocated in new version | Update imports, add migration dependency if needed |
-| `class file has wrong version` | Dependency compiled with newer Java | Find JDK 17-compatible version on Maven Central |
+| `package does not exist` | Package relocated in new version | Update imports |
+| `class file has wrong version` | Dependency compiled with newer Java | Find JDK 17-compatible version |
 | `version conflict` | Transitive dependency mismatch | Add explicit version or dependencyManagement entry |
-| `test failure` | Breaking change in test dependency | Update test assertions to match new behavior |
-| `plugin incompatible` | Maven plugin too old for new dependencies | Update plugin version |
+| `test failure` | Breaking change in test dependency | Update test assertions |
+| `plugin incompatible` | Maven plugin too old | Update plugin version |
 
 ## Step 4: Generate Build Report
 
@@ -111,20 +111,19 @@ Write build results to `.github/mend-resolver/build-report.md`:
 # Build Verification Report
 
 ## Build Summary
-- **Status**: ✅ Passed / ❌ Failed
+- **Status**: Passed / Failed
 - **Command**: mvn clean install
 - **Attempts**: N
 - **Duration**: N minutes
 
 ## Environment
-- **JDK**: 17 (JAVA_HOME=...)
+- **JDK**: 17
 - **Maven**: 3.9.X
-- **Java Version**: 17
 
 ## Build Results
 ### Compilation
-- **Main sources**: ✅ / ❌
-- **Test sources**: ✅ / ❌
+- **Main sources**: Passed / Failed
+- **Test sources**: Passed / Failed
 - **Errors**: N
 - **Warnings**: N
 
@@ -145,7 +144,7 @@ Write build results to `.github/mend-resolver/build-report.md`:
 | 1 | ... | ... | ... |
 
 ## Final Status
-- **Build**: ✅ Passing / ❌ Failing
+- **Build**: Passing / Failing
 - **All CVE Fixes Preserved**: Yes / No
 - **JDK 17 Compatible**: Yes
 - **Ready for Review**: Yes / No
@@ -156,7 +155,7 @@ Write build results to `.github/mend-resolver/build-report.md`:
 ```
 Build Verification Complete
 
-- **Status**: ✅ Passed / ❌ Failed
+- **Status**: Passed / Failed
 - **Attempts**: N
 - **Issues Fixed**: N
 - **Remaining Issues**: N

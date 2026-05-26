@@ -2,7 +2,7 @@
   "mcpServers": {
     "mend-mcp-server": {
       "name": "Mend MCP Server",
-      "description": "MCP server for Mend vulnerability resolution, Maven Central lookups, and dependency conflict checking",
+      "description": "Essential MCP server: Maven Central lookups, Mend report parsing, dependency conflict checking",
       "type": "local",
       "transport": "stdio",
       "command": "node",
@@ -16,17 +16,9 @@
       },
       "tools": [
         "maven-central-lookup",
-        "mend-check-conflicts",
-        "mend-validate-version",
         "mend-parse-report",
-        "mend-get-cve-details"
-      ],
-      "initializationOptions": {
-        "jdkVersion": 17,
-        "targetSpringBoot": "4.x",
-        "targetSpringFramework": "7.x",
-        "mavenVersion": "3.9.x"
-      }
+        "mend-check-conflicts"
+      ]
     }
   }
 }

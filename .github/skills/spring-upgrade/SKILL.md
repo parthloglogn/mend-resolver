@@ -19,7 +19,6 @@ Invoked by the `spring-upgrade` agent or `cve-resolution-coordinator` when Sprin
 ## Upgrade Points
 
 ### 1. Spring Boot Starter Parent
-In root `pom.xml`:
 ```xml
 <parent>
     <groupId>org.springframework.boot</groupId>
@@ -60,12 +59,12 @@ In root `pom.xml`:
 
 ## Verification Steps
 
-1. Look up latest 4.x.x version on Maven Central
+1. Look up latest 4.x.x version on Maven Central via `maven-central-lookup`
 2. Check which Framework version it includes
-3. Verify JDK 17 compatibility
+3. Verify no downgrade (native version comparison)
 4. Check for explicit version overrides that may conflict
 5. Apply upgrade
-6. Run conflict check
+6. Run conflict check via `mend-check-conflicts`
 
 ## Rollback Protection
 - Never downgrade Spring versions

@@ -1,7 +1,7 @@
 {
   "name": "@mend-resolver/mcp-server",
-  "version": "1.0.0",
-  "description": "MCP server for Mend vulnerability resolution with Maven Central lookups and dependency conflict checking",
+  "version": "1.1.0",
+  "description": "Essential MCP server for Mend vulnerability resolution with Maven Central lookups and dependency conflict checking",
   "main": "src/server.js",
   "bin": {
     "mend-mcp-server": "./src/server.js"

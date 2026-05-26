@@ -19,38 +19,17 @@ Called before EVERY version change during CVE resolution to ensure the upgrade d
 
 - `dependencyCoordinates`: groupId:artifactId
 - `proposedVersion`: New version to check
+- `currentVersion`: Current version in the project
 - `projectDependencies`: Full dependency tree from dependency-collector
-- `declaringFiles`: All files where this dependency is declared
 
 ## Outputs
 
 - Conflict report: list of conflicts found
 - Resolution suggestions
 
-## Conflict Types
-
-### Direct Dependency Conflicts
-Another direct dependency requires a different version of the same artifact.
-
-Example:
-- Module A uses `jackson-databind:2.15.0`
-- Proposing upgrade to `2.16.0`
-- But Module B explicitly depends on `jackson-databind:2.14.0`
-
-### Transitive Dependency Conflicts
-Upgrading a dependency causes a transitive dependency version mismatch.
-
-Example:
-- Upgrading `spring-boot-starter-web` from 3.2.0 to 4.0.0
-- This brings in `spring-core:7.0.0` transitively
-- But another dependency explicitly requires `spring-core:6.1.0`
-
-### Sub-Module Conflicts
-A child module overrides a version that conflicts with the parent's managed version.
-
 ## API Reference
 
-This skill uses the Mend MCP Server's `mend-check-conflicts` tool:
+Uses the `mend-check-conflicts` MCP tool:
 
 ```json
 {
@@ -59,8 +38,7 @@ This skill uses the Mend MCP Server's `mend-check-conflicts` tool:
     "dependency": "com.example:library",
     "proposedVersion": "1.2.5",
     "currentVersion": "1.2.3",
-    "projectRoot": "/path/to/project",
-    "allModules": ["module-a", "module-b", "module-c"]
+    "projectDeps": { ... }
   }
 }
 ```
@@ -81,8 +59,7 @@ This skill uses the Mend MCP Server's `mend-check-conflicts` tool:
     }
   ],
   "recommendations": [
-    "Add explicit spring-core version 7.0.0 to dependencyManagement",
-    "Upgrade com.other:library to version 3.1.0 which supports spring-core 7.0.0"
+    "Add explicit spring-core version 7.0.0 to dependencyManagement"
   ]
 }
 ```

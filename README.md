@@ -1,83 +1,82 @@
 # mend-resolver
 
-> Autonomous CVE resolution and Spring Boot modernization using multi-agent orchestration with Mend vulnerability reports.
+> Autonomous CVE resolution using Mend vulnerability reports with topFix guidance and multi-agent orchestration.
 
 ## Overview
 
-**mend-resolver** is an MCP-based GitHub agent framework that autonomously resolves CVE vulnerabilities using Mend (formerly WhiteSource) reports and upgrades Spring Boot & Spring Framework to their latest compatible versions.
+**mend-resolver** is a GitHub agent framework that autonomously resolves CVE vulnerabilities using Mend (formerly WhiteSource) reports. It uses Mend's **topFix** recommendation as the primary target version for each migration.
 
-Unlike general-purpose modernization tools, **mend-resolver** is strictly focused on:
-- Upgrading **Spring Boot** to the **4.x.x** series
-- Upgrading **Spring Framework** to the **7.x.x** series
-- Resolving **CVE vulnerabilities** from a user-provided Mend report
-- Ensuring the project **builds successfully** after all changes
+Key capabilities:
+- **Mend Report Parsing** -- Extracts CVEs with topFix recommendations
+- **Dependency Tree Comparison** -- Counts exactly how many places need changes per CVE
+- **One-by-One Migration** -- Processes CVEs individually in severity order
+- **Build Verification** -- Confirms clean build after all changes
 
 ## Features
 
-- **Repository Analysis** — Automatically scans and understands project structure (single/multi-module Maven/Gradle)
-- **Dependency Collection** — External skill that maps every dependency to its declaring files across all modules
-- **Mend Report Integration** — Parses Mend vulnerability reports and maps CVEs to dependencies
-- **CVE Resolution** — Applies targeted upgrades with strict constraint enforcement
-- **Spring Upgrade** — Upgrades Spring Boot and Spring Framework to target series
-- **Build Verification** — Runs `mvn clean install` and fixes compilation issues
-- **Multi-Agent Orchestration** — Specialized agents handle each phase with automatic routing
+- **Repository Analysis** -- Detects project type, modules, Spring versions, Java version
+- **Dependency Collection** -- Maps every dependency to all declaring files across modules
+- **Mend Report Integration** -- Parses CVEs and uses **topFix** as primary target version
+- **Affected File Counting** -- Reports exactly "how many places need changes" per CVE
+- **CVE Resolution** -- Applies targeted one-by-one upgrades using topFix guidance
+- **Build Verification** -- Runs `mvn clean install` and confirms clean build
 
 ## Hard Constraints (Never Violated)
 
 | Constraint | Rule |
 |------------|------|
-| **No Downgrades** | Never reduce a dependency version under any circumstance |
-| **JDK 17** | Every dependency change must be compatible with JDK 17 |
+| **Top Fix First** | Use Mend's topFix as the primary target version |
+| **No Downgrades** | Never reduce a dependency version |
+| **JDK 17** | Every change must be compatible with JDK 17 |
 | **Spring Boot 4.x** | Target the Spring Boot 4.x.x series |
 | **Spring Framework 7.x** | Target the Spring Framework 7.x.x series |
 | **Maven 3.9.x** | Compatible with Maven 3.9.x |
-| **Conflict Check** | Before changing any version, check for conflicts with all direct, sub-, and transitive dependencies |
-| **Maven Central** | Always verify the latest compatible version on Maven Central before applying any upgrade |
-| **Multi-Module** | Check all POMs before changing a shared dependency |
-| **Mend Report Only** | Only work from the user-provided Mend report — no manual CVE hunting |
+| **Conflict Check** | Check conflicts before every upgrade |
+| **Maven Central** | Verify every version on Maven Central |
+| **Multi-Module** | Check all POMs before changing shared dependencies |
 
 ## Architecture
 
 ```
 mend-resolver/
-├── .github/
-│   ├── agents/                          # Agent definitions
-│   │   ├── resolver.agent.md            # Main orchestrator
-│   │   ├── analysis-coordinator.agent.md # Repository analysis
-│   │   ├── cve-resolution-coordinator.agent.md  # CVE resolution
-│   │   ├── spring-upgrade.agent.md      # Spring version upgrades
-│   │   ├── build-verification.agent.md  # Build verification
-│   │   └── mend-cve-fix.agent.md        # Individual CVE fix executor
-│   ├── skills/                          # Reusable skills
-│   │   ├── dependency-collector/        # External skill — collect all dependencies
-│   │   ├── cve-resolution/              # CVE resolution skill
-│   │   ├── build-verification/          # Build verification skill
-│   │   ├── spring-upgrade/              # Spring upgrade skill
-│   │   ├── maven-central-check/         # Maven Central verification skill
-│   │   └── version-conflict-check/      # Conflict detection skill
-│   ├── hooks/                           # Pre/post action hooks
-│   │   ├── pre-analysis.hook.md
-│   │   ├── post-analysis.hook.md
-│   │   ├── pre-resolution.hook.md
-│   │   ├── post-resolution.hook.md
-│   │   ├── pre-build.hook.md
-│   │   └── post-build.hook.md
-│   └── instructions/                    # Step-by-step instructions
-│       ├── step-01-analyze-repo.md
-│       ├── step-02-collect-dependencies.md
-│       ├── step-03-load-mend-report.md
-│       ├── step-04-resolve-cves.md
-│       └── step-05-clean-build.md
-├── mcp/                                 # MCP server
-│   ├── src/
-│   │   └── server.js                    # MCP server implementation
-│   ├── config/
-│   │   └── mcp-server-config.json       # MCP server configuration
-│   ├── docs/
-│   │   └── API.md                       # API documentation
-│   ├── package.json
-│   └── .env.example
-└── README.md
+.github/
+  agents/
+    resolver.agent.md                    # Main orchestrator
+    analysis-coordinator.agent.md         # Repository analysis
+    cve-resolution-coordinator.agent.md   # CVE resolution with topFix
+    mend-cve-fix.agent.md                 # Individual CVE fix executor
+    spring-upgrade.agent.md               # Spring version upgrades
+    build-verification.agent.md           # Build verification
+  skills/
+    dependency-collector/                 # Collect all dependencies
+    cve-resolution/                       # CVE resolution with topFix
+    build-verification/                   # Build verification
+    spring-upgrade/                       # Spring upgrade skill
+    maven-central-check/                  # Maven Central verification
+    version-conflict-check/               # Conflict detection
+  hooks/
+    pre-analysis.hook.md                  # Pre-analysis validation
+    post-analysis.hook.md                 # Post-analysis validation
+    pre-resolution.hook.md                # Pre-resolution setup
+    post-resolution.hook.md               # Post-resolution validation
+    pre-build.hook.md                     # Pre-build environment check
+    post-build.hook.md                    # Post-build finalization
+  instructions/
+    step-01-analyze-repo.md               # Step 1: Analyze repository
+    step-02-collect-dependencies.md       # Step 2: Collect dependencies
+    step-03-load-mend-report.md           # Step 3: Load Mend report (with topFix)
+    step-04-resolve-cves.md               # Step 4: Resolve CVEs (one by one)
+    step-05-clean-build.md                # Step 5: Clean build verification
+mcp/                                      # MCP server (3 essential tools)
+  src/
+    server.js                             # MCP server implementation
+  config/
+    mcp-server-config.json                # MCP configuration
+  docs/
+    API.md                                # API documentation
+  package.json
+  .env.example
+README.md
 ```
 
 ## Workflow
@@ -86,58 +85,59 @@ mend-resolver/
 User provides: target repository + Mend vulnerability report
 
 Step 1: Analyze Repository
-  └─ Detect project type, modules, Spring versions, Java version
+  - Detect project type, modules, Spring versions, Java version
 
-Step 2: Collect Dependencies (External Skill)
-  └─ Map all dependencies to their declaring files across all modules
+Step 2: Collect Dependencies
+  - Map all dependencies to declaring files across all modules
 
 Step 3: Load Mend Report
-  └─ Parse CVEs, affected libraries, severity
-  └─ Map each CVE to dependency and declaring files
+  - Parse CVEs using mend-parse-report MCP
+  - Extract topFix as primary target version for each CVE
+  - Count how many files/modules each CVE affects
 
-Step 4: Resolve CVEs
-  └─ For each CVE (CRITICAL → HIGH → MEDIUM → LOW):
-      1. Identify vulnerable dependency
-      2. Find all declaring files
-      3. Determine target version (no downgrades)
-      4. Verify on Maven Central
-      5. Check JDK 17 compatibility
-      6. Check dependency conflicts
-      7. Check Spring alignment
-      8. Apply version change
-      9. Log the change
+Step 4: Resolve CVEs (ONE BY ONE)
+  - For each CVE (CRITICAL -> HIGH -> MEDIUM -> LOW):
+    1. Get topFix from Mend report as target version
+    2. Count affected files from dependency map
+    3. Verify on Maven Central via maven-central-lookup
+    4. Check JDK 17 compatibility (native check)
+    5. Enforce no-downgrade rule (native check)
+    6. Check dependency conflicts via mend-check-conflicts
+    7. Apply version change using most efficient strategy
+    8. Log the change
 
-Step 5: Clean & Build
-  └─ Run mvn clean install (or Gradle equivalent)
-  └─ Fix any compilation errors (max 10 attempts)
-  └─ Confirm successful build
+Step 5: Clean Build
+  - Run mvn clean install
+  - Fix any compilation errors (max 10 attempts)
+  - Confirm all CVE fixes preserved
+  - Confirm successful build
 ```
 
 ## Agent Hierarchy
 
 ```
 resolver (orchestrator)
-├── analysis-coordinator
-├── dependency-collector (skill)
-├── cve-resolution-coordinator
-│   ├── spring-upgrade (agent)
-│   └── mend-cve-fix (agent)
-└── build-verification (agent)
+  - analysis-coordinator
+  - dependency-collector (skill)
+  - cve-resolution-coordinator
+    - mend-cve-fix (agent -- one by one)
+  - spring-upgrade (agent)
+  - build-verification (agent)
 ```
 
-The orchestrator detects user intent and routes through the appropriate workflow. All actual work is delegated to specialized agents — the orchestrator never edits files or runs builds directly.
+## MCP Server (Simplified)
 
-## MCP Server
-
-The included MCP server (`mcp/`) provides tools for:
+The MCP server exposes only 3 essential tools:
 
 | Tool | Purpose |
 |------|---------|
-| `maven-central-lookup` | Verify artifact versions on Maven Central |
+| `maven-central-lookup` | Verify artifact versions on Maven Central, extract Java version |
+| `mend-parse-report` | Parse Mend reports, extract CVEs with topFix recommendations |
 | `mend-check-conflicts` | Check dependency conflicts before upgrades |
-| `mend-validate-version` | Validate versions against hard constraints |
-| `mend-parse-report` | Parse Mend vulnerability reports |
-| `mend-get-cve-details` | Get CVE details from NVD |
+
+**Removed tools (not needed):**
+- `mend-validate-version` -- replaced by native constraint checks in agents
+- `mend-get-cve-details` -- Mend report already contains CVE descriptions
 
 ### Running the MCP Server
 
@@ -156,32 +156,19 @@ npm start
 
 ## Usage
 
-### Starting the Workflow
-
-Invoke the resolver agent with your project and Mend report:
+Invoke the resolver agent:
 
 ```
 "Resolve CVEs in my project using this Mend report: /path/to/mend-report.json"
 ```
 
-### Workflow Phases
-
-The resolver will automatically guide you through:
-1. Repository analysis
-2. Dependency collection
-3. Mend report loading
-4. CVE resolution
-5. Build verification
-
-Each phase presents results and proceeds to the next. The orchestrator handles all delegation to specialized agents.
-
-## What This Agent Does NOT Do
-
-- **No Azure migration** — This agent does not migrate applications to Azure
-- **No manual CVE hunting** — Only works from the provided Mend report
-- **No dependency downgrades** — Never reduces any version
-- **No .NET support** — Java/Maven/Gradle projects only
-- **No architectural changes** — Only version upgrades and minimal compilation fixes
+The resolver will:
+1. Analyze your repository
+2. Collect all dependencies
+3. Load the Mend report and extract topFix versions
+4. Count affected files per CVE
+5. Resolve CVEs one by one using topFix guidance
+6. Verify clean build
 
 ## Report Outputs
 
@@ -191,19 +178,26 @@ After completion, find all reports in `.github/mend-resolver/`:
 |--------|----------|
 | `analysis-report.md` | Project structure, versions, module layout |
 | `dependency-map.json` | All dependencies mapped to declaring files |
-| `mend-report-parsed.json` | Parsed Mend CVE data |
-| `resolution-report.md` | CVE fixes applied, constraints compliance |
+| `mend-report-parsed.json` | Parsed Mend CVE data with topFix |
+| `resolution-report.md` | CVE fixes applied, topFix usage, constraints |
 | `change-log.md` | Detailed log of every version change |
-| `spring-upgrade-log.md` | Spring Boot/Framework upgrade details |
 | `build-report.md` | Build results, test status |
 | `FINAL_SUMMARY.md` | Complete workflow summary |
 
+## What This Agent Does NOT Do
+
+- **No Azure migration** -- Only CVE resolution and Spring upgrades
+- **No manual CVE hunting** -- Only works from the provided Mend report
+- **No dependency downgrades** -- Never reduces any version
+- **No .NET support** -- Java/Maven/Gradle projects only
+- **No unnecessary MCP tools** -- Only 3 essential tools exposed
+
 ## Requirements
 
-- **JDK 17** — Target Java version for all dependency compatibility
-- **Maven 3.9.x** — Build tool version
-- **Node.js 18+** — For MCP server (if using included server)
-- **Mend Report** — User-provided vulnerability report
+- **JDK 17** -- Target Java version
+- **Maven 3.9.x** -- Build tool version
+- **Node.js 18+** -- For MCP server
+- **Mend Report** -- User-provided vulnerability report (JSON/XML/CSV)
 
 ## License
 
